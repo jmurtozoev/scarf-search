@@ -59,6 +59,7 @@ func filterScarves(c *gin.Context) {
 			}
 			widthCluster = FindFCM(fcmPoints, f.Value)
 		}
+
 		if f.Name == "length" {
 			fcmPoints := make([]fcm.Interface, len(req.Scarves))
 			for i, s := range req.Scarves {
@@ -98,13 +99,12 @@ func filterScarves(c *gin.Context) {
 		}
 	}
 
-	sort.Slice(results, func(i, j int) bool { return results[i].TotalWeight > results[j].TotalWeight })
+	sort.Slice(results, func(i, j int) bool { return results[i].TotalWeight > results[j].TotalWeight})
 
 	updatedScarves := make([]Scarf, 0)
 	for _, r := range results {
 		updatedScarves = append(updatedScarves, r.Scarf)
 	}
-
 
 	c.JSON(http.StatusOK, gin.H{"scarves": updatedScarves})
 }
