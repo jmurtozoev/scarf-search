@@ -8,8 +8,22 @@ import (
 	"sort"
 )
 
+//var homepageTpl *template.Template
+//
+//func init() {
+//	homepageHTML := assets.MustAssetString("templates/index.html")
+//	homepageTpl = template.Must(template.New("homepage_view").Parse(homepageHTML))
+//
+//}
+
 func main() {
 	router := gin.Default()
+	router.LoadHTMLFiles("templates/index.html")
+
+	router.GET("/index", func(c *gin.Context) {
+		c.HTML(http.StatusOK, "index.html", "")
+	})
+
 	router.POST("/search", filterScarves)
 
 	log.Fatal(router.Run(":8080"))
