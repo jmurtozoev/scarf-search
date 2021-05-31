@@ -6,87 +6,118 @@ import (
 	"log"
 	"net/http"
 	"sort"
+	"strconv"
 )
 
-//var homepageTpl *template.Template
-//
-//func init() {
-//	homepageHTML := assets.MustAssetString("templates/index.html")
-//	homepageTpl = template.Must(template.New("homepage_view").Parse(homepageHTML))
-//
-//}
+func init()  {
+	if err := ConnectDb(""); err != nil {
+		panic(err)
+	}
+}
 
 func main() {
 	router := gin.Default()
-	router.LoadHTMLFiles("templates/index.html")
+	router.LoadHTMLGlob("templates/index.tmpl")
 
-	router.GET("/index", func(c *gin.Context) {
-		c.HTML(http.StatusOK, "index.html", "")
+	router.GET("/", func(c *gin.Context) {
+		scarves, err := GetAll()
+		if err != nil {
+			panic(err)
+		}
+
+		results := make([]Result, 0)
+		for _, scarf := range scarves {
+			results = append(results, Result{Scarf: scarf})
+		}
+
+		c.HTML(http.StatusOK, "main", map[string]interface{}{
+			"Price": priceOptions,
+			"Length": lengthOptions,
+			"Width": widthOptions,
+			"Rows": results,
+		})
 	})
 
-	router.POST("/search", filterScarves)
+	router.GET("/search", filterScarves)
 
 	log.Fatal(router.Run(":8080"))
 
 }
 
-type request struct {
-	Scarves []Scarf `json:"scarves"`
-	Filters []Filter `json:"filters"`
-}
 
 func filterScarves(c *gin.Context) {
-	var req request
-	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Println("binding request error: ", err)
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error": map[string]interface{}{
-				"type": "validation",
-				"message": err.Error(),
-			},
-		})
-		return
-	}
-
-	results := make([]Result, 0)
+	var scarves []Scarf
+	var filtersCount int
 	var priceCluster, widthCluster, lengthCluster map[int]float64
-	for _, f := range req.Filters {
-		// Map your own data slice to the structure implementing fcm.Interface
-		if f.Name == "price" {
-			fcmPoints := make([]fcm.Interface, len(req.Scarves))
-			for i, s := range req.Scarves {
-				fcmPoints[i] = FcmPoint(Point{
-					float64(s.Id),
-					s.Price,
-				})
-			}
-			priceCluster = FindFCM(fcmPoints, f.Value)
-		}
+	results := make([]Result, 0)
 
-		if f.Name == "width" {
-			fcmPoints := make([]fcm.Interface, len(req.Scarves))
-			for i, s := range req.Scarves {
-				fcmPoints[i] = FcmPoint(Point{
-					float64(s.Id),
-					float64(s.Width),
-				})
-			}
-			widthCluster = FindFCM(fcmPoints, f.Value)
-		}
-
-		if f.Name == "length" {
-			fcmPoints := make([]fcm.Interface, len(req.Scarves))
-			for i, s := range req.Scarves {
-				fcmPoints[i] = FcmPoint(Point{
-					float64(s.Id),
-					float64(s.Length),
-				})
-			}
-			lengthCluster = FindFCM(fcmPoints, f.Value)
-		}
+	scarves, err := GetAll()
+	if err != nil {
+		log.Println("Error getting scarves list")
 	}
 
-	for _, s := range req.Scarves {
+	if priceOption, err := strconv.Atoi(c.Query("price")); err == nil && priceOption > 1 {
+		value := "min"
+		switch priceOption {
+		case 3:
+			value = "avg"
+		case 4:
+			value = "max"
+		}
+
+		fcmPoints := make([]fcm.Interface, len(scarves))
+		for i, s := range scarves {
+			fcmPoints[i] = FcmPoint(Point{
+				float64(s.Id),
+				s.Price,
+			})
+		}
+		priceCluster = FindFCM(fcmPoints, value)
+		filtersCount++
+	}
+
+
+	if widthOption, err := strconv.Atoi(c.Query("width")); err == nil && widthOption > 1 {
+		value := "min"
+		switch widthOption {
+		case 3:
+			value = "avg"
+		case 4:
+			value = "max"
+		}
+
+		fcmPoints := make([]fcm.Interface, len(scarves))
+		for i, s := range scarves {
+			fcmPoints[i] = FcmPoint(Point{
+				float64(s.Id),
+				float64(s.Width),
+			})
+		}
+		widthCluster = FindFCM(fcmPoints, value)
+		filtersCount++
+	}
+
+	if lengthOption, err := strconv.Atoi(c.Query("length")); err == nil && lengthOption > 1 {
+		value := "min"
+		switch lengthOption {
+		case 3:
+			value = "avg"
+		case 4:
+			value = "max"
+		}
+
+		fcmPoints := make([]fcm.Interface, len(scarves))
+		for i, s := range scarves {
+			fcmPoints[i] = FcmPoint(Point{
+				float64(s.Id),
+				float64(s.Length),
+			})
+		}
+		lengthCluster = FindFCM(fcmPoints, value)
+		filtersCount++
+	}
+
+	for _, s := range scarves {
 		result := Result{
 			Scarf: s,
 			TotalWeight: 1,
@@ -104,11 +135,13 @@ func filterScarves(c *gin.Context) {
 			result.TotalWeight *= v
 		}
 
-		if len(req.Filters) == 1 && result.TotalWeight > 0.5 {
+		if filtersCount == 1 && result.TotalWeight > 0.5 {
 			results = append(results, result)
-		} else if len(req.Filters) == 2 && result.TotalWeight > 0.25 {
+		} else if filtersCount == 2 && result.TotalWeight > 0.25 {
 			results = append(results, result)
-		} else if len(req.Filters) == 3 && result.TotalWeight > 0.1 {
+		} else if filtersCount == 3 && result.TotalWeight > 0.1 {
+			results = append(results, result)
+		} else if filtersCount == 0 {
 			results = append(results, result)
 		}
 	}
@@ -120,5 +153,10 @@ func filterScarves(c *gin.Context) {
 		updatedScarves = append(updatedScarves, r.Scarf)
 	}
 
-	c.JSON(http.StatusOK, gin.H{"scarves": updatedScarves})
+	c.HTML(http.StatusOK, "main", map[string]interface{}{
+		"Price": priceOptions,
+		"Length": lengthOptions,
+		"Width": widthOptions,
+		"Rows": results,
+	})
 }
