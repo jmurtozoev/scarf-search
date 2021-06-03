@@ -29,6 +29,9 @@ github.com/leodido/go-urn
 github.com/lhhong/go-fcm/fcm
 # github.com/mattn/go-isatty v0.0.12
 github.com/mattn/go-isatty
+# github.com/mattn/go-sqlite3 v1.14.7
+## explicit
+github.com/mattn/go-sqlite3
 # github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
 ## explicit
 github.com/modern-go/concurrent
