@@ -5,6 +5,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/lhhong/go-fcm/fcm"
 	"log"
+	"math"
 	"net/http"
 	"sort"
 	"strconv"
@@ -141,6 +142,7 @@ func filterScarves(c *gin.Context) {
 			result.TotalWeight *= v
 		}
 
+		result.TotalWeight = math.Floor(result.TotalWeight *1000)/1000
 		if filtersCount == 1 && result.TotalWeight > 0.5 {
 			results = append(results, result)
 		} else if filtersCount == 2 && result.TotalWeight > 0.25 {
@@ -269,6 +271,7 @@ func personalize(c *gin.Context) {
 			result.TotalWeight *= v
 		}
 
+		result.TotalWeight = math.Floor(result.TotalWeight *1000)/1000
 		if filtersCount == 1 && result.TotalWeight > 0.5 {
 			results = append(results, result)
 		} else if filtersCount == 2 && result.TotalWeight > 0.25 {
